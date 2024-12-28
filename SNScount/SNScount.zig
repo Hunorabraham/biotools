@@ -8,7 +8,12 @@ const Sequence = struct{
         if(Self.current >= Self.letters.len) return null;
         if(Self.letters[Self.current] == '\n') Self.current += 1; //skip newlines
         if(Self.letters[Self.current] == '\r') Self.current += 1; //skip carriage returns
-        if(Self.letters[Self.current] == 'U') return 'T'; //return Timin instead of Uracil
+        if(Self.letters[Self.current] == 'U') return 'T'; //return timin instead of uracil 
+        if(Self.letters[Self.current] == 'u') return 't'; 
+        if(Self.letters[Self.current] == 'N') return '-'; //return '-' instead of other "undefined" characters
+        if(Self.letters[Self.current] == 'n') return '-'; 
+        if(Self.letters[Self.current] == 'X') return '-'; 
+        if(Self.letters[Self.current] == 'x') return '-'; 
         defer Self.current += 1;
         return Self.letters[Self.current];
     }

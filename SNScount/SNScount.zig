@@ -64,15 +64,15 @@ pub fn main() !void{
     //arg reading
     var args = try std.process.argsWithAllocator(allocator);
     _ = args.skip();
-    var arg1: ?[]const u8 = null;
-    var arg2: ?[]const u8 = null;
-    var arg3: ?[]const u8 = null;
+    var fname_nucleotide: ?[]const u8 = null;
+    var fname_protein: ?[]const u8 = null;
+    var fname_output: ?[]const u8 = null;
     while(args.next()) |arg|{
         if(compstr(arg, "-n")){
-            arg1 = args.next();
+            fname_nucleotide = args.next();
         }
         else if(compstr(arg, "-p")){
-            arg2 = args.next();
+            fname_protein = args.next();
         }
         else if(compstr(arg, "-h")){
             std.debug.print(\\switch syntax: -<switch> <parameter>
@@ -87,24 +87,22 @@ pub fn main() !void{
             return;
         }
         else if(compstr(arg, "-o")){
-            arg3 = args.next();
+            fname_output = args.next();
         }
         //std.debug.print("{s}\n",.{arg});
     }
-    if(arg1 == null){
+    if(fname_nucleotide == null){
         std.debug.print("Specify file of nucleotide sequences with -n", .{});
         return;
     }
-    if(arg2 ==  null){
+    if(fname_protein ==  null){
         std.debug.print("Specify file of amino acid sequences with -p", .{});
         return;
     }
-    const filenameN = arg1.?;
-    const filenameP = arg2.?;
     
     //file reading
-    const nucleotide = try readFile(filenameN, allocator);
-    const protein = try readFile(filenameP, allocator);
+    const nucleotide = try readFile(fname_nucleotide.?, allocator);
+    const protein = try readFile(fname_protein.?, allocator);
     
     //tokenisation
     var sequences = [_]Sequence{Sequence{.name = "0", .letters = "0", .current = 0}}**100;
@@ -128,6 +126,11 @@ pub fn main() !void{
     for(results[0..(count-1)]) |r|{
         std.debug.print("{s}\n  Synonymous(dS): {d}\n  Nonsysnonymous(dN): {d}\n  ratio(dN/dS): {d}\n", .{r.name, r.synonym, r.nonSynonym, r.ratio()});
     }
+    
+    if(fname_output == null) return;
+    
+    
+    //write to file
 }
 
 pub fn countSNS(refN: *Sequence, refP: *Sequence, compN: *Sequence, compP: *Sequence, target: *CompData) void{

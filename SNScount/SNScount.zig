@@ -5,17 +5,19 @@ const Sequence = struct{
     letters : []const u8,
     current: usize,
     pub fn next(Self: *Sequence) ?u8{
+        defer Self.current += 1;
         if(Self.current >= Self.letters.len) return null;
         if(Self.letters[Self.current] == '\n') Self.current += 1; //skip newlines
         if(Self.letters[Self.current] == '\r') Self.current += 1; //skip carriage returns
-        if(Self.letters[Self.current] == 'U') return 'T'; //return timin instead of uracil 
-        if(Self.letters[Self.current] == 'u') return 't'; 
-        if(Self.letters[Self.current] == 'N') return '-'; //return '-' instead of other "undefined" characters
-        if(Self.letters[Self.current] == 'n') return '-'; 
-        if(Self.letters[Self.current] == 'X') return '-'; 
-        if(Self.letters[Self.current] == 'x') return '-'; 
-        defer Self.current += 1;
-        return Self.letters[Self.current];
+        return switch(Self.letters[Self.current]){
+            'U' => 'T', //return timin instead of uracil
+            'u' => 't',
+            'N' => '-', //return - instead of other "missing" markers
+            'n' => '-',
+            'X' => '-',
+            'x' => '-',
+            else=>Self.letters[Self.current],
+        };
     }
     pub fn jump(Self: *Sequence, n: usize) void{
         var count: usize = 0;
@@ -77,12 +79,18 @@ pub fn main() !void{
         else if(compstr(arg, "-h")){
             std.debug.print(\\switch syntax: -<switch> <parameter>
             \\-h
-            \\  no parameter, displays this message
-            \\-n
-            \\  <file name>, specifies the file containing the sequences as nucleotides 
-            \\-p
-            \\  <file name>, specifies the file containing the sequences as amino acids 
-            \\(note: sequences must be in the same order in both files, reference must be the first sequence)
+            \\  displays this message
+            \\-n <file name>
+            \\  specifies the file containing the sequences as nucleotides 
+            \\  (note: sequences must be in the same order in both files, reference must be the first sequence)
+            \\-p <file name>
+            \\  specifies the file containing the sequences as amino acids 
+            \\  (note: sequences must be in the same order in both files, reference must be the first sequence)
+            \\-o <file name>
+            \\  modifies the name of the file(with extension .csv) to write the results in if the file already exists its contents will be overwritten
+            \\  the default name is: dnds_out.csv
+            \\  write "none", if you don't want to write the contents to a file
+            \\
             , .{});
             return;
         }
@@ -108,8 +116,8 @@ pub fn main() !void{
     var sequences = [_]Sequence{Sequence{.name = "0", .letters = "0", .current = 0}}**100;
     var translations = [_]Sequence{Sequence{.name = "0", .letters = "0", .current = 0}}**100;
     const count = fillSequence(&sequences, nucleotide);
-    std.debug.print("{d} sequences found\n", .{count});
     _= fillSequence(&translations, protein);
+    std.debug.print("{d} sequences found\n", .{count});
     
     //for(translations[0..count], sequences[0..count]) |t, s|{
     //    std.debug.print("name: {s}\nsequence len: {d}, translation len: {d}\n", .{s.shortName(), s.letters.len, t.letters.len});
@@ -119,18 +127,34 @@ pub fn main() !void{
     var results = [_]CompData{CompData{.name = "N", .synonym = 0, .nonSynonym = 0}}**100;
     var referenceN = sequences[0];
     var referenceP = translations[0];
+    
     for(1..count) |i|{
-        results[i-1].name = sequences[i].shortName();
+        results[i-1].name = sequences[i].name;
         countSNS(&referenceN, &referenceP, &sequences[i], &translations[i], &results[i-1]);
     }
     for(results[0..(count-1)]) |r|{
         std.debug.print("{s}\n  Synonymous(dS): {d}\n  Nonsysnonymous(dN): {d}\n  ratio(dN/dS): {d}\n", .{r.name, r.synonym, r.nonSynonym, r.ratio()});
     }
     
-    if(fname_output == null) return;
-    
-    
+    //write
+    if(fname_output == null) {
+        fname_output = "dnds_out.csv";
+    }
+    else if(compstr(fname_output.?, "none")) return;
     //write to file
+    const cwd = std.fs.cwd();
+    var file: std.fs.File = try cwd.createFile(fname_output.?, .{});
+    defer file.close();
+    //write first line
+    _ = try file.write("sequence name;Synonymous(dS);Nonsysnonymous(dN);ratio(dN/dS)\n");
+    //write rest of the lines
+    for(results[0..(count-1)]) |r|{
+        const line = try std.fmt.allocPrint(allocator, "{s};{d};{d};{d:.3}\n", .{r.name, r.synonym, r.nonSynonym, r.ratio()});
+        _ = try file.write(line);
+        allocator.free(line);
+    }
+    
+    std.debug.print("Data written to file: {s}\n",.{fname_output.?});
 }
 
 pub fn countSNS(refN: *Sequence, refP: *Sequence, compN: *Sequence, compP: *Sequence, target: *CompData) void{
@@ -178,18 +202,21 @@ fn fillSequence(target: []Sequence, source: []const u8) usize{
         i += 1; //skip >
         start = i;
         while(source[i] != '\n'){i+=1;}//skip to new line
-        target[count].name = source[start..i];
+        target[count].name = source[start..(i-1)];
         i += 1; //go over new line
         if(source[i] == '\r') i+=1; //ignore carriage return (fuck u microsoft)
         //sequence
         start = i;
-        var extra_spaces: u8 = 0;
         while(i < source.len){
-            if(source[i] == '\n') extra_spaces += 1;
-            if(source[i] == '\r') extra_spaces += 1;
             if(source[i] == '>') break;
             i+=1;
         }
+        //handle extra characters
+        const extra_spaces: u8 = switch(source[i-1]){
+            '\r' => 3,
+            '\n' => 2,
+            else => 1,
+        };
         target[count].letters = source[start..(i-extra_spaces)];
     }
     return count;

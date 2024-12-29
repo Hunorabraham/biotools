@@ -5,10 +5,11 @@ const Sequence = struct{
     letters : []const u8,
     current: usize,
     pub fn next(Self: *Sequence) ?u8{
-        defer Self.current += 1;
         if(Self.current >= Self.letters.len) return null;
         if(Self.letters[Self.current] == '\n') Self.current += 1; //skip newlines
         if(Self.letters[Self.current] == '\r') Self.current += 1; //skip carriage returns
+        if(Self.current >= Self.letters.len) return null; //check again
+        defer Self.current += 1;
         return switch(Self.letters[Self.current]){
             'U' => 'T', //return timin instead of uracil
             'u' => 't',
@@ -140,7 +141,10 @@ pub fn main() !void{
     if(fname_output == null) {
         fname_output = "dnds_out.csv";
     }
-    else if(compstr(fname_output.?, "none")) return;
+    else if(compstr(fname_output.?, "none")){
+        std.debug.print("writing to file skipped\n",.{});
+        return;
+    }
     //write to file
     const cwd = std.fs.cwd();
     var file: std.fs.File = try cwd.createFile(fname_output.?, .{});
@@ -202,7 +206,7 @@ fn fillSequence(target: []Sequence, source: []const u8) usize{
         i += 1; //skip >
         start = i;
         while(source[i] != '\n'){i+=1;}//skip to new line
-        target[count].name = source[start..(i-1)];
+        target[count].name = source[start..i];
         i += 1; //go over new line
         if(source[i] == '\r') i+=1; //ignore carriage return (fuck u microsoft)
         //sequence
@@ -213,9 +217,9 @@ fn fillSequence(target: []Sequence, source: []const u8) usize{
         }
         //handle extra characters
         const extra_spaces: u8 = switch(source[i-1]){
-            '\r' => 3,
-            '\n' => 2,
-            else => 1,
+            '\r' => 2,
+            '\n' => 1,
+            else => 0,
         };
         target[count].letters = source[start..(i-extra_spaces)];
     }

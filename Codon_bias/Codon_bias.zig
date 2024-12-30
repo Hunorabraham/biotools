@@ -36,7 +36,7 @@ const Sequence = struct{
             target[i] = Self.next() orelse '-';
         }
     }
-    pub fn nextCodon(Self: *Sequence) [3]u8{
+    pub fn nextCodon(Self: *Sequence) ?[3]u8{
         var resp = [_]u8{0,0,0};
         var letter: ?u8 = Self.next();
         if(letter == null) return null;
@@ -71,15 +71,15 @@ const CodonTable = struct{
         }
         return 'X';
     }
-    ///returns a slice from the codons containing all corresponding codons to the given amino acid
+    ///returns a slice from the codons containing all possible encodings for the given amino acid
     fn getCodons(self: *CodonTable, amino_acid: u8) []u8{
         var start:usize = 0;
-        while(slef.amino_acids[start] != amino_acid){start += 1;} //find beginning of codons
+        while(self.amino_acids[start] != amino_acid){start += 1;} //find beginning of codons
         var end:usize = start+1;
         while(self.amino_acids[end] != amino_acid){end += 1;} //find end of codons
         return self.codons[start..end];
     }
-}
+};
 pub fn main() !void{
     //allocator
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -122,14 +122,19 @@ pub fn main() !void{
         //std.debug.print("{s}\n",.{arg});
     }
     if(fname_nucleotide == null){
-        print("bruh");
+        print("bruh", .{});
         return;
     }
 }
 
 //note: no toUppercase, just if(c > 'Z') c -= 32;
-fn packCodons(source: Sequence, target: Sequence) void{
-    
+fn packCodons(source: *Sequence, target: *Sequence) void{
+    var i: usize = 0;
+    while(source.nextCodon()) |codon|{
+        if(codon[0] == '-') target[i] = 'X';
+        
+        i += 1;
+    }
 }
 fn fillSequence(target: []Sequence, source: []const u8) usize{
     var count: usize = 0;

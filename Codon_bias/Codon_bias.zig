@@ -60,7 +60,6 @@ const Sequence = struct{
         return Self.name;
     }
 };
-
 const CodonTable = struct{
     codons: []u8,
     amino_acids: []u8,
@@ -69,7 +68,7 @@ const CodonTable = struct{
         for(self.codons, self.amino_acids) |c, a|{
             if(c == codon) return a;
         }
-        return 'X';
+        return 0x1000_0000;
     }
     ///returns a slice from the codons containing all possible encodings for the given amino acid
     fn getCodons(self: *CodonTable, amino_acid: u8) []u8{
@@ -79,6 +78,10 @@ const CodonTable = struct{
         while(self.amino_acids[end] != amino_acid){end += 1;} //find end of codons
         return self.codons[start..end];
     }
+};
+const resultData = struct{
+	name: []const u8,
+	frequencies: []u8
 };
 pub fn main() !void{
     //allocator
@@ -121,20 +124,47 @@ pub fn main() !void{
         }
         //std.debug.print("{s}\n",.{arg});
     }
-    if(fname_nucleotide == null){
-        print("bruh", .{});
+    //file reading
+	if(fname_nucleotide == null){
+        print("specify the text file containing your sequence with -n", .{});
         return;
     }
+	if(tname == null) tname = "standard";
+	if(!std.mem.eql(u8, tname.?, "standard")){
+		print("couldn't find codon table name: {s}",.{tname.?});
+		return;
+	}
+	//parsing
+	const tableSource = try readFile("standard.txt", allocator);
+    const nucleotide = try readFile(fname_nucleotide.?, allocator);
+	var table = CodonTable{.codons = undefined, .amino_acids = undefined};
+	var array1 = [_]u8{0b1000_0000}**64;
+	var array2 = [_]u8{0b1000_0000}**64;
+	table.codons =  &array1;
+	table.amino_acids =  &array2;
+	var sequences = [_]Sequence{Sequence{.name = "0", .letters = "0", .current = 0}}**100;
+	const amount = fillSequence(&sequences, nucleotide);
+	fillCodonTable(&table, tableSource);
+	_=amount;
 }
-
 //note: no toUppercase, just if(c > 'Z') c -= 32;
-fn packCodons(source: *Sequence, target: *Sequence) void{
-    var i: usize = 0;
-    while(source.nextCodon()) |codon|{
-        if(codon[0] == '-') target[i] = 'X';
-        
-        i += 1;
-    }
+fn packCodon(codon: *const [3]u8) u8{
+	var result:u8 = 0b1000_0000;
+	for(codon)|c|{
+		//return early on missing nucleotide
+		if(c == '-'){
+			return 0b1000_0000;
+		}
+		result = result << 2;
+		result += switch(if(c > 'Z') c-32 else c){
+			'T' => 0,
+			'C' => 1,
+			'A' => 2,
+			'G' => 3,
+			else => unreachable, //add proper error later
+		};
+	}
+	return result;
 }
 fn fillSequence(target: []Sequence, source: []const u8) usize{
     var count: usize = 0;
@@ -178,4 +208,22 @@ fn readFile(filename: []const u8, allocator: std.mem.Allocator) ![]u8{
     const content = try allocator.alloc(u8, size);
     _ = try file.read(content);
     return content;
+}
+fn fillCodonTable(target: *CodonTable, source: []const u8) void{
+	var iterator = std.mem.tokenizeAny(u8, source, "\n\r");
+	var i:usize = 0;
+	while(iterator.next()) |line|{
+		for(line[0..3])|c|{
+			target.codons[i] = target.codons[i] << 2;
+			target.codons[i] += switch(if(c > 'Z') c-32 else c){
+				'T' => 0,
+				'C' => 1,
+				'A' => 2,
+				'G' => 3,
+				else => unreachable, //add proper error later
+			};
+		}
+		target.amino_acids[i] = line[4];
+		i += 1;
+	}
 }

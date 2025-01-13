@@ -152,13 +152,39 @@ pub fn main() !void{
         data[i].name = sequences[i].name;
         data[i].frequencies = try calcBias(try packSequence(&sequences[i], allocator), allocator);
     }
-    //print
-    for(data[0..amount])|d|{
-        print("{s}\n",.{d.name});
-        for(d.frequencies, 0..)|f,i|{
-            print("  {s}: {d}\n",.{table.codons[i*3..][0..3],f});
+    //check data
+    //for(data[0..amount])|d|{
+    //    print("{s}\n",.{d.name});
+    //    for(d.frequencies, 0..)|f,i|{
+    //        print("  {s}: {d}\n",.{table.codons[i*3..][0..3],f});
+    //    }
+    //}
+    //calc 2
+    //array holding the indicies of the amino acids in the table
+    var indicies = [_]usize{0}**64;
+    //fill the array with the indicies in order
+    for(0..indicies.len) |i|{
+        indicies[i] = i;
+    }
+    //sort in place the indicies by alphabetical order according to which amino acid they point to
+    //insertion sort, I'm too lazy to make a merge sort
+    for(0..indicies.len) |i|{
+        for((i+1)..indicies.len) |j|{
+            if(table.amino_acids[indicies[i]] > table.amino_acids[indicies[j]]){
+               //swap with magic
+               indicies[i] ^= indicies[j];
+               indicies[j] ^= indicies[i];
+               indicies[i] ^= indicies[j];
+            }
         }
     }
+    //let's check if it worked
+    for(indicies)|i|{
+        print("{d}: {c}\n",.{i, table.amino_acids[i]});
+    }
+    
+    //write to file
+    //stuff
 }
 //note: no toUppercase, just if(c > 'Z') c -= 32;
 fn calcBias(codons: []const u8, allocator: std.mem.Allocator) ![]u32{

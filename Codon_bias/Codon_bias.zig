@@ -179,16 +179,18 @@ pub fn main() !void{
         }
     }
     //let's check if it worked
-    for(indicies)|i|{
-        print("{d}: {c}\n",.{i, table.amino_acids[i]});
-    }
+    //for(indicies)|i|{
+    //    print("{d}: {c}\n",.{i, table.amino_acids[i]});
+    //}
     //break indicies down to slices, save lengths to an array
     var lengths_buffer = [_]usize{0}**64;
-    const lengths = getLengths(&lengths_buffer, &indicies);
-    for(lengths) |i|{
-        print("{d}\n", .{i});
-    }
-    
+    const lengths = getLengths(&lengths_buffer, &indicies, &table);
+    //check if this also works
+	//for(lengths) |i|{
+    //    print("{d}\n", .{i});
+    //}
+	
+	
     //write to file
     //for(resultData) |result|{
     //    var start:u8 = 0;
@@ -206,7 +208,7 @@ pub fn main() !void{
     //stuff
 }
 //note: no toUppercase, just if(c > 'Z') c -= 32;
-fn getLengths (buffer: []usize, indicies: []const usize) []usize{
+fn getLengths (buffer: []usize, indicies: []const usize, table: *CodonTable) []usize{
     var count:usize = 0;
     var start:usize = 0;
     for(0..indicies.len)|i|{
@@ -216,7 +218,7 @@ fn getLengths (buffer: []usize, indicies: []const usize) []usize{
             count += 1;
             break;
         }
-        if(indicies[i] != indicies[i+1]){
+        if(table.amino_acids[indicies[i]] != table.amino_acids[indicies[i+1]]){
             buffer[count] = i-start;
             count += 1;
             start = i;

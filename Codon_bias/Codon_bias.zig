@@ -114,7 +114,6 @@ pub fn main() !void{
             \\-o <file name>
             \\  modifies the name of the file(with extension .csv) to write the results in if the file already exists its contents will be overwritten
             \\  the default name is: codon_bias.csv
-            \\  write "none", if you don't want to write the contents to a file
             \\
             , .{});
             return;
@@ -190,22 +189,40 @@ pub fn main() !void{
     //    print("{d}\n", .{i});
     //}
 	
-	
+	//check output file name
+    if(fname_output == null) {
+        fname_output = "codon_bias_out.csv";
+    }
     //write to file
-    //for(resultData) |result|{
-    //    var start:u8 = 0;
-    //    for(lengths[0..length_counter]) |length| {
-    //        var total:u32 = 0;
-    //        for(indicies[start..][0..length]) |i|{
-    //            total += result.frequencies[i];
-    //        } 
-    //        //actual write
-    //        for(indicies[start..][0..length) |i|{
-    //            
-    //        }
-    //    }
-    //}
-    //stuff
+    const cwd = std.fs.cwd();
+    var file: std.fs.File = try cwd.createFile(fname_output.?, .{});
+    defer file.close();
+    //write first line, obviously incoplete for now
+    _ = try file.write("sequence name; (...)");
+    //write rest of the lines
+    for(results[0..(count-1)]) |r|{
+        const line = try std.fmt.allocPrint(allocator, "{s};{d};{d};{d:.3}\n", .{r.name, r.synonym, r.nonSynonym, r.ratio()});
+        _ = try file.write(line);
+        allocator.free(line);
+    }
+    
+    for(resultData) |result|{
+        var start:usize = 0;
+        for(lengths) |length| {
+            var total:u32 = 0;
+			//count occurences of amino acid
+            for(indicies[start..][0..length]) |i|{
+                total += result.frequencies[i];
+            }
+            //actual write
+            for(indicies[start..][0..length) |i|{
+				const cells = try std.fmt.allocPrint(allocator, "{c};{d}", .{table.amino_acids[i], result.frequencies});
+				_= try file.write(cells);
+				allocator.free(cells);
+            }
+        }
+    }
+    std.debug.print("Data written to file: {s}\n",.{fname_output.?});
 }
 //note: no toUppercase, just if(c > 'Z') c -= 32;
 fn getLengths (buffer: []usize, indicies: []const usize, table: *CodonTable) []usize{
